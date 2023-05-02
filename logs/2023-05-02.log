@@ -1,0 +1,5 @@
+2023-05-02/13.59.48	SUCCESS	web_flask	Сервер RASPBERRY_Flask начал свою работу
+2023-05-02/13.59.48	EVENT	Попытка подключиться к камере: cam2 - rtsp://UVIG:VIG5682881@192.168.0.55
+2023-05-02/13.59.48	EVENT	Попытка подключиться к камере: cam4 - rtsp://UVIG:VIG5682881@192.168.0.74
+2023-05-02/13.59.52	SUCCESS	ThreadVideoRTSP.start()	Создано подключение к cam2 - rtsp://UVIG:VIG5682881@192.168.0.55
+2023-05-02/13.59.56	SUCCESS	ThreadVideoRTSP.start()	Создано подключение к cam4 - rtsp://UVIG:VIG5682881@192.168.0.74

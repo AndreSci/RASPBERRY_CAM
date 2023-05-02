@@ -1,0 +1,48 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <value>
+          <list size="3">
+            <item index="0" class="java.lang.String" itemvalue="configparser" />
+            <item index="1" class="java.lang.String" itemvalue="functools" />
+            <item index="2" class="java.lang.String" itemvalue="opencv-python" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8Inspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="E127" />
+          <option value="E722" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyTypeCheckerInspection" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="PyQt5.QtWidgets.triggered.connect" />
+          <option value="PyQt5.QtWidgets.clicked.connect" />
+          <option value="qrcode.make" />
+          <option value="str.cursor" />
+          <option value="str.commit" />
+          <option value="aiogram.utils.callback_data.CallbackData.__getitem__" />
+          <option value="cv2.CascadeClassifier" />
+          <option value="cv2.INTER_LINEAR" />
+          <option value="cv2.IMREAD_UNCHANGED" />
+          <option value="cv2.imdecode" />
+          <option value="cv2.imwrite" />
+          <option value="cv2.flip" />
+          <option value="cv2.rotate" />
+          <option value="cv2.ROTATE_180" />
+          <option value="cv2.ROTATE_90_COUNTERCLOCKWISE" />
+          <option value="cv2.ROTATE_90_CLOCKWISE" />
+          <option value="cv2.resize" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>

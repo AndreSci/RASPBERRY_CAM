@@ -8,6 +8,23 @@ PLATES_INITED_MODEL = cv2.dnn.readNet(consts.PLATES_MODEL_PATH)
 NUMBERS_INITED_MODEL = cv2.dnn.readNet(consts.NUMS_MODEL_PATH)
 
 
+def num_to_rus(numbers: list):
+
+    ru_number = list()
+
+    for num in numbers:
+        if num[0] == 0:
+            num[0] = 'О'
+        elif num[0].isdigit():
+            continue
+
+        if not num[1].isdigit() or num[2].isdigit() or num[3].isdigit():
+            continue
+
+
+        ru_number.append(num)
+
+
 def pasr_detection(x_list: list, id_char: list, confidence: list):
     """Проходим по всем элементам номера"""
 
@@ -35,15 +52,14 @@ class AiClass:
         self.model_number = NUMBERS_INITED_MODEL
 
         self.lock_thread = threading.Lock()
-
-        self.frame_1 = ''
+        self.start_new = dict()
 
         self.detect_plates = ''
         self.labels = list()
     
     def plates_pre_process_frame(self, frame):
         """ Перед отправкой в нейронку нужно произвести с ней манипуляции"""
-        outputs = []
+        # outputs = []
         blob = cv2.dnn.blobFromImage(frame, 0.004,
                                      (consts.PLATES_WIDTH_INPUT, consts.PLATES_HEIGHT_INPUT),
                                      [0, 0, 0], 1,
@@ -122,7 +138,7 @@ class AiClass:
                 # label = "{}:{:.2f}".format(classes[class_ids[i]], confidences[i])
                 # Draw label.
                 # draw_label(input_image, label, left, top)
-        print(f"len of plates = {len(frames)}")
+        # print(f"len of plates = {len(frames)}")
 
         return frames
 
@@ -164,7 +180,7 @@ class AiClass:
 
         indices = cv2.dnn.NMSBoxes(boxes, confidences, consts.CONFIDENCE_THRESHOLD, consts.NMS_THRESHOLD)
         
-        detected_num = []
+        # detected_num = []
         pars_x_list = []
         pars_confid = []
         pars_class_id = []
@@ -179,18 +195,15 @@ class AiClass:
             pars_class_id.append(class_ids[i])
 
         detected_num = pasr_detection(pars_x_list,  pars_class_id, pars_confid)
-        print(f"nums = {detected_num}")
+        # print(f"nums = {detected_num}")
 
         return detected_num
 
-    def find_plates(self, frame, cam_name: str):
-
-        # Сохраняем в класс кадр
-        self.frame_1 = frame
+    def __thread_find(self, frame, cam_name: str):
 
         with self.lock_thread:
             # result = self.model_plates(self.frame_1)
-            
+
             output_of_detections = self.plates_pre_process_frame(frame)
 
             frames_detected = self.__plates_post_process(frame, output_of_detections)
@@ -199,7 +212,6 @@ class AiClass:
             numbers = list()
 
             for frames_out in frames_detected:
-                
                 numbers.append(self.recon_number(frames_out))
 
             if len(numbers) > 0:
@@ -211,6 +223,19 @@ class AiClass:
             # else:
             #     print("Нет данных")
 
+        self.start_new[cam_name] = True
+
+    def find_plates(self, frame, cam_name: str):
+
+        if not self.start_new.get(cam_name):
+            self.start_new[cam_name] = True
+
+        if self.start_new[cam_name]:
+            self.start_new[cam_name] = False
+            t1 = threading.Thread(target=self.__thread_find, args=[frame, cam_name])
+
+            t1.start()
+
     def recon_number(self, frame) -> list:
         """ Возвращает номер в виде списка элементов номера """
         result_of_numbers = list()
@@ -220,7 +245,8 @@ class AiClass:
             # print(f"[{array.data[1]}:{array.data[3]}, {array.data[0]}:{array.data[2]}]")
             crop_img = frame
             # Меняем размер под размеры нейронной сети
-            crop_img = cv2.resize(crop_img, (160, 160))
+            # with self.lock_thread:
+            #     crop_img = cv2.resize(frame, (160, 160))
 
             # crop_img = cv2.cvtColor(crop_img, cv2.COLOR_BGR2GRAY)
 
@@ -236,31 +262,36 @@ class AiClass:
 
         return result_of_numbers
 
-    def draw_plate(self):
+    # def draw_plate(self):
+    #
+    #     # with self.lock_thread:
+    #     # Добавляем разметку на кадр
+    #     # ret_frame = self.box_annotator.annotate(
+    #     #     scene=self.frame_1,
+    #     #     detections=self.detect_plates,
+    #     #     labels=self.labels
+    #     # )
+    #
+    #     return self.frame_1
 
-        # with self.lock_thread:
-        # Добавляем разметку на кадр
-        # ret_frame = self.box_annotator.annotate(
-        #     scene=self.frame_1,
-        #     detections=self.detect_plates,
-        #     labels=self.labels
-        # )
+    # def save_plate(self, file_name, array: []):
+    #
+    #     # today = datetime.datetime.today()
+    #     # for_name = str(today.strftime("%Y%m%d%H%M%S%f"))
+    #     #
+    #     # file_name = f'{for_name}.jpg'
+    #
+    #     try:
+    #         if array:
+    #             self.frame_1 = self.frame_1[int(array.data[1]):int(array.data[3]),
+    #                                         int(array.data[0]):int(array.data[2])]
+    #
+    #         cv2.imwrite(os.path.join(consts.TEMP_PATH, file_name), self.frame_1)
+    #
+    #     except Exception as ex:
+    #         print(f"EXCEPTION\tAiClass.save_plate()\tИсключение - {ex}")
 
-        return self.frame_1
 
-    def save_plate(self, file_name, array: []):
+if __name__ == '__main__':
 
-        # today = datetime.datetime.today()
-        # for_name = str(today.strftime("%Y%m%d%H%M%S%f"))
-        #
-        # file_name = f'{for_name}.jpg'
-
-        try:
-            if array:
-                self.frame_1 = self.frame_1[int(array.data[1]):int(array.data[3]),
-                                            int(array.data[0]):int(array.data[2])]
-
-            cv2.imwrite(os.path.join(consts.TEMP_PATH, file_name), self.frame_1)
-
-        except Exception as ex:
-            print(f"EXCEPTION\tAiClass.save_plate()\tИсключение - {ex}")
+    print(num_to_rus(['e100kk777', '0111pp999', '123pp555']))

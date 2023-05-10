@@ -66,10 +66,6 @@ class ThreadVideoRTSP:
 
         try:
             while True:
-
-                if frame_index > 15:
-                    frame_index = 0
-
                 if not capture.isOpened():
                     break
 
@@ -82,8 +78,14 @@ class ThreadVideoRTSP:
 
                     frame_index += 1
 
-                    if 11 < frame_index < 15 and ret:
+                    if frame_index in (0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60):
+                        # Преобразуем кадр в .jpg
+                        ret_jpg, frame_jpg = cv2.imencode('.jpg', frame)
+                        self.last_frame = frame_jpg.tobytes()
+
+                    if frame_index > 40 and ret:
                         # Начинаем сохранять кадр в файл
+                        frame_index = 0
                         frame_fail_cnt = 0
 
                         # cv2.imwrite(self.url_frame, frame)
@@ -92,10 +94,6 @@ class ThreadVideoRTSP:
                         self.plate_recon.find_plates(frame, self.cam_name)
 
                         # frame = cv2.resize(frame, (0, 0), fx=0.9, fy=0.9)
-                        # Преобразуем кадр в .jpg
-                        ret_jpg, frame_jpg = cv2.imencode('.jpg', frame)
-
-                        self.last_frame = frame_jpg.tobytes()
 
                     elif not ret:
                         # Собираем статистику неудачных кадров

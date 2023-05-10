@@ -2,6 +2,7 @@
 import datetime
 import cv2
 
+
 def timer_function(function):
 
     def wrapped(*args):
@@ -14,5 +15,3 @@ def timer_function(function):
         return res
 
     return wrapped
-
-print(cv2.__version__)

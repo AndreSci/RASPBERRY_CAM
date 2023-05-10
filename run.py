@@ -23,6 +23,7 @@ def main():
     port = settings.settings_ini["port"]
 
     # Меняем имя терминала
+    # TODO Убрать для Linux
     ctypes.windll.kernel32.SetConsoleTitleW(f"REST CAM_API port: {port}")
 
     # Обьявляем логирование

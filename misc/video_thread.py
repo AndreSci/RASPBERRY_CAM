@@ -5,6 +5,7 @@ import argparse
 import cv2
 import os
 import threading
+
 from misc.logger import Logger
 from misc.ai import AiClass
 
@@ -52,7 +53,7 @@ class ThreadVideoRTSP:
     def __start(self, logger: Logger):
         """ Функция подключения и поддержки связи с камерой """
 
-        capture = cv2.VideoCapture(self.url)
+        capture = cv2.VideoCapture(self.url, cv2.CAP_FFMPEG)
         # capture = cv2.VideoCapture(0)
 
         if capture.isOpened():
@@ -87,6 +88,7 @@ class ThreadVideoRTSP:
 
                         # cv2.imwrite(self.url_frame, frame)
                         # Дорисовываем квадрат на кадре
+
                         self.plate_recon.find_plates(frame, self.cam_name)
 
                         # frame = cv2.resize(frame, (0, 0), fx=0.9, fy=0.9)

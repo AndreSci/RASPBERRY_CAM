@@ -18,7 +18,5 @@ def detect_object(image_path):
     # Подаем blob на вход нейронной сети и получаем ее выход
     net.setInput(blob)
 
-    net.
-
 if __name__ == '__main__':
     detect_object('test_img.jpg')

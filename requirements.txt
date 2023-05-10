@@ -4,3 +4,5 @@ opencv-python~=4.7.0.72
 yolov5~=7.0.11
 supervision~=0.6.0
 ultralytics
+numpy~=1.24.3
+Flask~=2.3.1

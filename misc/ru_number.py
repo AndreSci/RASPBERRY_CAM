@@ -1,9 +1,4 @@
 
-
-CLASS_ID = ['_', 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'A', 'B', 'C', 'E', 'H', 'K', 'M', 'P', 'T', 'X', 'Y']
-RU_CHAR = ['А', 'В', 'С', ]
-
-
 def num_to_rus(numbers: list):
 
     ru_number = list()

@@ -60,41 +60,5 @@ def web_flask(logger: Logger, settings_ini: SettingsIni):
 
         return Response(frame, mimetype='image/jpeg')
 
-    @app.route('/start.cam', methods=['GET'])
-    def start_cam():
-        """ Включает получение видео потока от указанной каменры """
-
-        json_replay = {"RESULT": "ERROR", "DESC": "", "DATA": ""}
-
-        # получаем данные из параметров запроса
-        res_request = request.args
-
-        # cam_name = str(res_request.get('cam_name'))
-        cam_name = str(res_request.get('name'))
-
-        cam_list[cam_name].start(logger)
-
-        json_replay['RESULT'] = "SUCCESS"
-
-        return jsonify(json_replay)
-
-    @app.route('/stop.cam', methods=['GET'])
-    def stop_cam():
-        """ Удаляет заявку на создание пропуска если FStatusID = 1 \n
-        принимает user_id, inn и fid заявки """
-
-        json_replay = {"RESULT": "ERROR", "DESC": "", "DATA": ""}
-
-        # получаем данные из параметров запроса
-        res_request = request.args
-
-        cam_name = str(res_request.get('name'))
-
-        cam_list[cam_name].stop()
-
-        json_replay['RESULT'] = "SUCCESS"
-
-        return jsonify(json_replay)
-
     # RUN SERVER FLASK  ------
     app.run(debug=False, host=set_ini["host"], port=int(set_ini["port"]))

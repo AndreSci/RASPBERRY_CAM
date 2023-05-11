@@ -24,7 +24,7 @@ def main():
 
     # Меняем имя терминала
     # TODO Убрать для Linux
-    ctypes.windll.kernel32.SetConsoleTitleW(f"REST CAM_API port: {port}")
+    ctypes.windll.kernel32.SetConsoleTitleW(f"Client Wheel_CAM port: {port}")
 
     # Обьявляем логирование
     logger = Logger(settings)

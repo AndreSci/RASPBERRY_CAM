@@ -21,7 +21,6 @@ def num_to_rus(numbers: list):
         if not num[1].isdigit() or num[2].isdigit() or num[3].isdigit():
             continue
 
-
         ru_number.append(num)
 
 
@@ -56,7 +55,12 @@ class AiClass:
 
         self.detect_plates = ''
         self.labels = list()
-    
+
+        # Сюда записываем последние распознанные номера
+        # {cam1: dict(numbers: ['A100AA77','Y100AA'], parsed: true/false), }
+        self.lock_change_nums = threading.Lock()
+        self.recon_numbers = dict()
+
     def plates_pre_process_frame(self, frame):
         """ Перед отправкой в нейронку нужно произвести с ней манипуляции"""
         # outputs = []
@@ -217,11 +221,18 @@ class AiClass:
             if len(numbers) > 0:
                 self.labels = ["".join(num) for num in numbers]
 
+                numbers_for_req = list()
                 # TODO реализовать на разные страны
-                if len(self.labels[0]) > 7:
-                    print(f"{cam_name}: RUS {self.labels}")
-            # else:
-            #     print("Нет данных")
+                for num in self.labels:
+                    if len(num) > 7:
+                        numbers_for_req.append(num)
+
+                # TODO убрать в релизе
+                # print(f"-- {cam_name}: {self.labels}")
+
+                if numbers_for_req:
+                    with self.lock_change_nums:
+                        self.recon_numbers[cam_name] = {'numbers': numbers_for_req, 'parsed': False}
 
         self.start_new[cam_name] = True
 
@@ -290,6 +301,19 @@ class AiClass:
     #
     #     except Exception as ex:
     #         print(f"EXCEPTION\tAiClass.save_plate()\tИсключение - {ex}")
+
+    def take_recon_numbers(self):
+
+        with self.lock_change_nums:
+            copy_rec = dict()
+
+            # Проверяем на новые события
+            for it in self.recon_numbers:
+                if not self.recon_numbers[it]['parsed']:
+                    copy_rec[it] = self.recon_numbers[it].copy()
+                    self.recon_numbers[it]['parsed'] = True
+
+            return copy_rec
 
 
 if __name__ == '__main__':

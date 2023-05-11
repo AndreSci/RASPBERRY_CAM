@@ -1,9 +1,9 @@
-
 import datetime
 import cv2
 
 
 def timer_function(function):
+    """ Декоратор для подсчета времени выполнения функции """
 
     def wrapped(*args):
         start_time = datetime.datetime.now()

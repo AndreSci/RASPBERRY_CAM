@@ -1,23 +1,21 @@
 import time
-import datetime
-import argparse
 
 import cv2
-import os
 import threading
 
 from misc.logger import Logger
 from misc.ai import AiClass
 
 
-TH_CAM_ERROR_LOCK = threading.Lock()
-
-
 class ThreadVideoRTSP:
     """ Класс получения видео из камеры"""
-    def __init__(self, cam_name: str, url: str, plate_recon: AiClass):
+    def __init__(self, cam_name: str, url: str, plate_recon: AiClass, camera_speed=30, recon_freq=1.3):
+        # Настройки камеры
         self.url = url
         self.cam_name = cam_name
+        # Частота кадров и с какой периодичность отправлять на распознание (camera_speed * recon_freq)
+        self.camera_speed = camera_speed
+        self.recon_freq = recon_freq
 
         self.last_frame = b''
 
@@ -32,6 +30,7 @@ class ThreadVideoRTSP:
         self.thread_is_alive = False
         self.thread_object = None
 
+        # Ссылка на объект классна распознавания
         self.plate_recon = plate_recon
 
     def start(self, logger: Logger):
@@ -54,14 +53,12 @@ class ThreadVideoRTSP:
         """ Функция подключения и поддержки связи с камерой """
 
         capture = cv2.VideoCapture(self.url, cv2.CAP_FFMPEG)
-        # capture = cv2.VideoCapture(0)
 
         if capture.isOpened():
             logger.add_log(f"SUCCESS\tThreadVideoRTSP.start()\t"
                                 f"Создано подключение к {self.cam_name} - {self.url}")
 
         frame_fail_cnt = 0
-
         frame_index = 0
 
         try:
@@ -69,31 +66,27 @@ class ThreadVideoRTSP:
                 if not capture.isOpened():
                     break
 
-                ret, frame = capture.read()  # читать всегда кадр
-                # cv2.imshow('test1', frame)
-                #
-                # cv2.waitKey(30)
+                ret, frame = capture.read()  # читать кадр
 
                 with self.th_do_frame_lock:
 
+                    # Создаем копию для того что б избежать коллизию чтения кадра
+                    copy_frame = frame.copy()
+
                     frame_index += 1
 
-                    if frame_index in (0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60):
-                        # Преобразуем кадр в .jpg
-                        ret_jpg, frame_jpg = cv2.imencode('.jpg', frame)
-                        self.last_frame = frame_jpg.tobytes()
+                    # Временное решение для просмотра кадров под Flask
+                    # if frame_index in (0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60):
+                    #     # Преобразуем кадр в .jpg
+                    #     ret_jpg, frame_jpg = cv2.imencode('.jpg', cop_frame)
+                    #     self.last_frame = frame_jpg.tobytes()
 
-                    if frame_index > 40 and ret:
+                    if frame_index > (self.camera_speed * self.recon_freq) and ret:
                         # Начинаем сохранять кадр в файл
                         frame_index = 0
                         frame_fail_cnt = 0
 
-                        # cv2.imwrite(self.url_frame, frame)
-                        # Дорисовываем квадрат на кадре
-
-                        self.plate_recon.find_plates(frame, self.cam_name)
-
-                        # frame = cv2.resize(frame, (0, 0), fx=0.9, fy=0.9)
+                        self.plate_recon.find_plates(copy_frame, self.cam_name)
 
                     elif not ret:
                         # Собираем статистику неудачных кадров
@@ -129,10 +122,6 @@ class ThreadVideoRTSP:
         if self.allow_read_frame:
             self.start(logger)
         # cv2.destroyAllWindows()
-
-    def stop(self):
-        """ Остановить бесконечный цикл __start() """
-        self.allow_read_frame = False
 
     def take_frame(self):
         """ Функция выгружает байт-код кадра из файла """

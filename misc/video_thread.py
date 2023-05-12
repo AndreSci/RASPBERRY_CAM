@@ -70,9 +70,6 @@ class ThreadVideoRTSP:
 
                 with self.th_do_frame_lock:
 
-                    # Создаем копию для того что б избежать коллизию чтения кадра
-                    copy_frame = frame.copy()
-
                     frame_index += 1
 
                     # Временное решение для просмотра кадров под Flask
@@ -82,7 +79,10 @@ class ThreadVideoRTSP:
                     #     self.last_frame = frame_jpg.tobytes()
 
                     if frame_index > (self.camera_speed * self.recon_freq) and ret:
-                        # Начинаем сохранять кадр в файл
+
+                        # Создаем копию для того что б избежать коллизию чтения кадра
+                        copy_frame = frame.copy()
+
                         frame_index = 0
                         frame_fail_cnt = 0
 

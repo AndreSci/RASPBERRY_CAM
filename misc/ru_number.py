@@ -1,23 +1,30 @@
+from utils.consts import CLASS_ID
 
-def num_to_rus(numbers: list):
+
+def num_is_rus(numbers: list):
+    global CLASS_ID
 
     ru_number = list()
 
     for num in numbers:
+
+        number = list()
+
         if num[0] == '0':
-            num = 'О' + num[1:]
+            number.append('О')
         elif num[0].isdigit():
-            print('не число 1')
             continue
+        else:
+            number.append(num[0])
 
-        print(f"test 3 числа: {num[1:4]}")
-        if not num[1:3].isdigit():
-            print('не число 2')
-            continue
+        for n in num[1:3]:
+            if not n.isdigit():
+                continue
 
-        print(f"test 2 буквы: {num[4:6]}")
-        if num[4].isdigit() or num[5].isdigit():
-            print('не буквы 2')
+        if num[4].isdigit():
+            if num[4] == '0':
+                num[4] = 'О'
+        if num[5].isdigit():
             continue
 
         ru_number.append(num.upper())
@@ -27,4 +34,4 @@ def num_to_rus(numbers: list):
 
 if __name__ == '__main__':
 
-    print(num_to_rus(['e100kk777', '0111pp999', '123pp555', 'в100FА777', 'f150AA777']))
+    print(num_is_rus([['0', '1', '2', '3', 'p', 'p', '7', '7']]))

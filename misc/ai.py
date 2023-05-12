@@ -1,6 +1,6 @@
 import cv2
 import threading
-import os
+
 import utils.consts as consts
 import numpy as np
 import datetime
@@ -23,6 +23,8 @@ def num_to_rus(numbers: list):
             continue
 
         ru_number.append(num)
+
+    return ru_number
 
 
 def pasr_detection(x_list: list, id_char: list, confidence: list):
@@ -52,7 +54,7 @@ class AiClass:
         self.model_number = NUMBERS_INITED_MODEL
 
         self.lock_thread = threading.Lock()
-        self.start_new = dict()
+        self.allow_recognition_by_name = dict()
 
         self.detect_plates = ''
         self.labels = list()
@@ -206,54 +208,66 @@ class AiClass:
 
     def __thread_find(self, frame, cam_name: str):
 
-        with self.lock_thread:
-            # result = self.model_plates(self.frame_1)
+        try:
+            # Получаем время для статистики скорости распознавания
+            start_time = datetime.datetime.now()
 
-            output_of_detections = self.plates_pre_process_frame(frame)
+            with self.lock_thread:
+                # result = self.model_plates(self.frame_1)
 
-            frames_detected = self.__plates_post_process(frame, output_of_detections)
-            # Находим все объекты на кадре
+                output_of_detections = self.plates_pre_process_frame(frame)
 
-            numbers = list()
+                frames_detected = self.__plates_post_process(frame, output_of_detections)
+                # Находим все объекты на кадре
 
-            for frames_out in frames_detected:
-                numbers.append(self.recon_number(frames_out))
+                numbers = list()
 
-            if len(numbers) > 0:
-                self.labels = ["".join(num) for num in numbers]
+                for frames_out in frames_detected:
+                    numbers.append(self.recon_number(frames_out))
 
-                numbers_for_req = list()
-                # TODO реализовать на разные страны
-                for num in self.labels:
-                    if len(num) > 7:
-                        numbers_for_req.append(num)
+                if len(numbers) > 0:
+                    self.labels = ["".join(num) for num in numbers]
 
-                # TODO убрать в релизе
-                # print(f"-- {cam_name}: {self.labels}")
+                    numbers_for_req = list()
+                    # TODO реализовать на разные страны
+                    for num in self.labels:
+                        if len(num) > 7:
+                            numbers_for_req.append(num)
 
-                if numbers_for_req:
+                    if numbers_for_req:
 
-                    # Получаем время
-                    today = datetime.datetime.now()
-                    # date_time = today.strftime("%Y-%m-%d/%H.%M.%S")
+                        # Получаем время
+                        today = datetime.datetime.now()
+                        # date_time = today.strftime("%Y-%m-%d/%H.%M.%S")
 
-                    with self.lock_change_nums:
-                        self.recon_numbers[cam_name] = {'numbers': numbers_for_req,
-                                                        'parsed': False,
-                                                        'date_time': today}
+                        end_time = datetime.datetime.now()
+                        delta_time = (end_time - start_time).total_seconds()
 
-        self.start_new[cam_name] = True
+                        with self.lock_change_nums:
+                            self.recon_numbers[cam_name] = {'numbers': numbers_for_req,
+                                                            'parsed': False,
+                                                            'date_time': today,
+                                                            'recognition_speed': delta_time}
+        except Exception as ex:
+            print(f"EXCEPTION\tAiClass.__thread_find\tИсключение в работе распознавания номера: {ex}")
+
+        self.allow_recognition_by_name[cam_name] = True
 
     def find_plates(self, frame, cam_name: str):
+        """ Функция начала распознавания номера в отдельном потоке """
+        if not self.allow_recognition_by_name.get(cam_name):
+            self.allow_recognition_by_name[cam_name] = True
 
-        if not self.start_new.get(cam_name):
-            self.start_new[cam_name] = True
+        if self.allow_recognition_by_name[cam_name]:
+            self.allow_recognition_by_name[cam_name] = False
 
-        if self.start_new[cam_name]:
-            self.start_new[cam_name] = False
-            t1 = threading.Thread(target=self.__thread_find, args=[frame, cam_name])
-
-            t1.start()
+            try:
+                t1 = threading.Thread(target=self.__thread_find, args=[frame, cam_name])
+                t1.start()
+            except Exception as ex:
+                print(f"EXCEPTION\tAiClass.find_plates\tИсключение вызвала "
+                      f"попытка создания потока для распознавания: {ex}")
+                self.allow_recognition_by_name[cam_name] = True
 
     def recon_number(self, frame) -> list:
         """ Возвращает номер в виде списка элементов номера """

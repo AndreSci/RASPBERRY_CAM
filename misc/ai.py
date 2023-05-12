@@ -3,6 +3,7 @@ import threading
 import os
 import utils.consts as consts
 import numpy as np
+import datetime
 
 PLATES_INITED_MODEL = cv2.dnn.readNet(consts.PLATES_MODEL_PATH)
 NUMBERS_INITED_MODEL = cv2.dnn.readNet(consts.NUMS_MODEL_PATH)
@@ -231,8 +232,15 @@ class AiClass:
                 # print(f"-- {cam_name}: {self.labels}")
 
                 if numbers_for_req:
+
+                    # Получаем время
+                    today = datetime.datetime.now()
+                    # date_time = today.strftime("%Y-%m-%d/%H.%M.%S")
+
                     with self.lock_change_nums:
-                        self.recon_numbers[cam_name] = {'numbers': numbers_for_req, 'parsed': False}
+                        self.recon_numbers[cam_name] = {'numbers': numbers_for_req,
+                                                        'parsed': False,
+                                                        'date_time': today}
 
         self.start_new[cam_name] = True
 
@@ -252,21 +260,11 @@ class AiClass:
         result_of_numbers = list()
 
         try:
+            # cv2.imwrite(os.path.join(consts.TEMP_PATH, "test.jpg"), frame)
 
-            # print(f"[{array.data[1]}:{array.data[3]}, {array.data[0]}:{array.data[2]}]")
-            crop_img = frame
-            # Меняем размер под размеры нейронной сети
-            # with self.lock_thread:
-            #     crop_img = cv2.resize(frame, (160, 160))
-
-            # crop_img = cv2.cvtColor(crop_img, cv2.COLOR_BGR2GRAY)
-
-            cv2.imwrite(os.path.join(consts.TEMP_PATH, "test.jpg"), crop_img)
-            # Делаем серого цвета вырезанный участок для распознания
-            
-            output_of_detection_numbers = self.nums_pre_process_frame(crop_img)
+            output_of_detection_numbers = self.nums_pre_process_frame(frame)
             # Отправляем на распознание
-            result_of_numbers = self.__nums_post_process(crop_img, output_of_detection_numbers)
+            result_of_numbers = self.__nums_post_process(frame, output_of_detection_numbers)
 
         except Exception as ex:
             print(f"EXCEPTION\tAiClass.recon_number()\t{ex}")

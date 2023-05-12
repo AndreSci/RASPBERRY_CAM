@@ -1,15 +1,52 @@
 import time
 
 import requests
+import datetime
 
-from misc.video_thread import ThreadVideoRTSP
 from misc.video_thread import create_cams_threads
 
 from misc.ai import AiClass
 from misc.utility import SettingsIni
 from misc.logger import Logger
-from main import web_flask
-import ctypes
+
+DUPLICATE_NUMBERS = dict()
+
+
+def count_duplicate_in(number, time_recon):
+    """ Функция проверяет номер был ли он распознан в ближайшее время и возвращает True или False """
+    global DUPLICATE_NUMBERS
+
+    result = True
+
+    today = datetime.datetime.now()
+
+    if number in DUPLICATE_NUMBERS:
+        # Если между дубликатами время прошло больше заданного одобряем отправку запроса
+        if (today - DUPLICATE_NUMBERS[number]['date_time']).total_seconds() > 15:
+            DUPLICATE_NUMBERS[number]['date_time'] = today
+        else:
+            result = False
+    else:
+        DUPLICATE_NUMBERS[number] = {'date_time': time_recon}
+
+    # print(DUPLICATE_NUMBERS)
+
+    return result
+
+
+def duplicate_numbers(recon_numbers: dict):
+    """ Принимает в себя словарь распознанных номеров, проверяет на повторы по времени и изменяет его """
+
+    result = dict()
+
+    for it in recon_numbers:
+
+        for number in recon_numbers[it]['numbers']:
+            if count_duplicate_in(number, recon_numbers[it]['date_time']):
+                result[it] = recon_numbers[it].copy()
+                result[it]['date_time'] = str(recon_numbers[it]['date_time'].strftime("%Y-%m-%d/%H.%M.%S"))
+
+    return result
 
 
 def client(logger: Logger, settings_ini: SettingsIni):
@@ -33,10 +70,14 @@ def client(logger: Logger, settings_ini: SettingsIni):
                            f"Исключение вызвано при попытке получить результат распознания номеров: {ex}")
 
         if result:
+            result = duplicate_numbers(result)
             request_data = {"RESULT": 'SUCCESS', 'DESC': '', 'DATA': result}
 
-            # вместо request пока что принты
-            logger.add_log(f"SUCCESS\tclient\tRequest: {result}")  # log
+            if result:
+                # вместо request пока что принты
+                logger.add_log(f"SUCCESS\tclient\tRequest: {result}")  # log
+            else:
+                print("Не удалось найти новые номера")
         else:
             pass
 

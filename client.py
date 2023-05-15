@@ -5,7 +5,7 @@ import datetime
 
 from misc.video_thread import create_cams_threads
 
-from misc.ai import AiClass
+from misc.ai2 import AiClass
 from misc.utility import SettingsIni
 from misc.logger import Logger
 
@@ -76,8 +76,8 @@ def client(logger: Logger, settings_ini: SettingsIni):
             if result:
                 # вместо request пока что принты
                 logger.add_log(f"SUCCESS\tclient\tRequest: {result}")  # log
-            else:
-                print("Не удалось найти новые номера")
+            # else:
+            #     print("Не удалось найти новые номера")
         else:
             pass
 

@@ -4,12 +4,12 @@ import cv2
 import threading
 
 from misc.logger import Logger
-from misc.ai import AiClass
+from misc.ai2 import AiClass
 
 
 class ThreadVideoRTSP:
     """ Класс получения видео из камеры"""
-    def __init__(self, cam_name: str, url: str, plate_recon: AiClass, camera_speed=30, recon_freq=1.3):
+    def __init__(self, cam_name: str, url: str, plate_recon: AiClass, camera_speed=30, recon_freq=0.5):
         # Настройки камеры
         self.url = url
         self.cam_name = cam_name
@@ -68,6 +68,10 @@ class ThreadVideoRTSP:
 
                 ret, frame = capture.read()  # читать кадр
 
+                # if ret:
+                #     cv2.imshow('test', frame)
+                #     cv2.waitKey(10)
+
                 with self.th_do_frame_lock:
 
                     frame_index += 1
@@ -78,7 +82,8 @@ class ThreadVideoRTSP:
                     #     ret_jpg, frame_jpg = cv2.imencode('.jpg', cop_frame)
                     #     self.last_frame = frame_jpg.tobytes()
 
-                    if frame_index > (self.camera_speed * self.recon_freq) and ret:
+                    # if frame_index > (self.camera_speed * self.recon_freq) and ret:
+                    if ret:
 
                         # Создаем копию для того что б избежать коллизию чтения кадра
                         copy_frame = frame.copy()
@@ -101,6 +106,17 @@ class ThreadVideoRTSP:
                             break
                     else:
                         frame_fail_cnt = 0
+                #
+                # if ret:
+                #     box = self.plate_recon.take_plate_box(self.cam_name)
+                #     # Draw bounding box.
+                #     if box:
+                #         cv2.rectangle(frame, (box['left'], box['top']),
+                #                       (box['left'] + box['width'], box['top'] + box['height']), [0, 255, 255], 2*1)
+                #
+                #     # Показываем кадр с нарисованным квадратом
+                #     cv2.imshow(f'show: {self.cam_name}', frame)
+                #     cv2.waitKey(10)
 
         except Exception as ex:
             logger.add_log(f"EXCEPTION\tThreadVideoRTSP.__start\t"
@@ -121,7 +137,7 @@ class ThreadVideoRTSP:
         # Если разрешено чтение кадров переподключаем камеру
         if self.allow_read_frame:
             self.start(logger)
-        # cv2.destroyAllWindows()
+        cv2.destroyAllWindows()
 
     def take_frame(self):
         """ Функция выгружает байт-код кадра из файла """

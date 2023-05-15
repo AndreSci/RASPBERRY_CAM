@@ -10,7 +10,6 @@ NUMBERS_INITED_MODEL = cv2.dnn.readNet(consts.NUMS_MODEL_PATH)
 
 
 def num_to_rus(numbers: list):
-
     ru_number = list()
 
     for num in numbers:
@@ -68,6 +67,11 @@ class AiClass:
         self.plates_on_frame = {'box': dict(), 'frames_detected': []}
 
         self.show_frame = ''
+
+        self.allow_recognition = dict()
+        self.stop_recon = dict()
+        self.threads_for_recon = dict()
+        self.cams_frame = dict()
 
     def plates_pre_process_frame(self, frame):
         """ Перед отправкой в нейронку нужно произвести с ней манипуляции"""
@@ -128,12 +132,11 @@ class AiClass:
                 class_id = np.argmax(classes_scores)
 
                 if classes_scores[class_id] > consts.SCORE_THRESHOLD:
-
                     confidences.append(confidence)
                     class_ids.append(class_id)
                     cx, cy, w, h = row[0], row[1], row[2], row[3]
-                    left = int((cx - w/2) * x_factor)
-                    top = int((cy - h/2) * y_factor)
+                    left = int((cx - w / 2) * x_factor)
+                    top = int((cy - h / 2) * y_factor)
                     width = int(w * x_factor)
                     height = int(h * y_factor)
                     box = np.array([left, top, width, height])
@@ -157,6 +160,9 @@ class AiClass:
 
                 # Draw bounding box.
                 # cv2.rectangle(input_image, (left, top), (left + width, top + height), BLUE, 3*THICKNESS)
+                cv2.rectangle(input_image, (ret_value['box']['left'], ret_value['box']['top']),
+                              (ret_value['box']['left'] + ret_value['box']['width'], ret_value['box']['top'] +
+                               ret_value['box']['height']), [0, 0, 255], 2 * 1)
 
                 frames.append(input_image[top:top + height, left:left + width])
 
@@ -171,7 +177,7 @@ class AiClass:
 
     @staticmethod
     def __nums_post_process(input_image, outputs):
-        """Вытаскиваем координаты найденных номеров из того, что отдала нам нейронка. 
+        """Вытаскиваем координаты найденных номеров из того, что отдала нам нейронка.
             Вытаскивает только те, которые прошли проверку уверенности. Отдает кадры на распознавание символов
             принимает в себя фрейм, который был отправлен в нейронку"""
         class_ids = []
@@ -194,26 +200,24 @@ class AiClass:
                 class_id = np.argmax(classes_scores)
 
                 if classes_scores[class_id] > consts.SCORE_THRESHOLD:
-
                     confidences.append(confidence)
                     class_ids.append(class_id)
                     cx, cy, w, h = row[0], row[1], row[2], row[3]
-                    left = int((cx - w/2) * x_factor)
-                    top = int((cy - h/2) * y_factor)
+                    left = int((cx - w / 2) * x_factor)
+                    top = int((cy - h / 2) * y_factor)
                     width = int(w * x_factor)
                     height = int(h * y_factor)
                     box = np.array([left, top, width, height])
                     boxes.append(box)
 
         indices = cv2.dnn.NMSBoxes(boxes, confidences, consts.CONFIDENCE_THRESHOLD, consts.NMS_THRESHOLD)
-        
+
         # detected_num = []
         pars_x_list = []
         pars_confid = []
         pars_class_id = []
 
         for i in indices:
-
             box = boxes[i]
             left = box[0]
             pars_x_list.append(left)
@@ -221,63 +225,70 @@ class AiClass:
             pars_confid.append(confidences[i])
             pars_class_id.append(class_ids[i])
 
-        detected_num = pasr_detection(pars_x_list,  pars_class_id, pars_confid)
+        detected_num = pasr_detection(pars_x_list, pars_class_id, pars_confid)
         # print(f"nums = {detected_num}")
 
         return detected_num
 
-    def __thread_find(self, frame, cam_name: str):
+    def __thread_find(self, cam_name: str):
 
-        try:
-            # Получаем время для статистики скорости распознавания
-            start_time = datetime.datetime.now()
+        while self.stop_recon[cam_name]:  # Если нет команды остановить поток
 
-            with self.lock_thread:
-                # result = self.model_plates(self.frame_1)
+            if self.allow_recognition[cam_name]:  # Если True начать искать номер
 
-                output_of_detections = self.plates_pre_process_frame(frame)
+                try:
+                    # Получаем время для статистики скорости распознавания
+                    start_time = datetime.datetime.now()
 
-                plates = self.__plates_post_process(frame, output_of_detections)
-                # Находим все объекты на кадре
+                    with self.lock_thread:
+                        # result = self.model_plates(self.frame_1)
 
-                with self.lock_read_pl_on_fr:
-                    if plates.get('box'):
-                        self.plates_on_frame[cam_name] = plates['box']
-                    else:
-                        self.plates_on_frame[cam_name] = []
+                        output_of_detections = self.plates_pre_process_frame(self.cams_frame[cam_name])
 
-                numbers = list()
+                        plates = self.__plates_post_process(self.cams_frame[cam_name], output_of_detections)
+                        # Находим все объекты на кадре
 
-                for frames_out in plates['frames_detected']:
-                    numbers.append(self.recon_number(frames_out))
+                        with self.lock_read_pl_on_fr:
+                            if plates.get('box'):
+                                self.plates_on_frame[cam_name] = plates['box']
+                            else:
+                                self.plates_on_frame[cam_name] = []
 
-                if len(numbers) > 0:
-                    self.labels = ["".join(num) for num in numbers]
+                        numbers = list()
 
-                    numbers_for_req = list()
-                    # TODO реализовать на разные страны
-                    for num in self.labels:
-                        if len(num) > 7:
-                            numbers_for_req.append(num)
+                        for frames_out in plates['frames_detected']:
+                            numbers.append(self.recon_number(frames_out))
 
-                    if numbers_for_req:
+                        if len(numbers) > 0:
+                            self.labels = ["".join(num) for num in numbers]
 
-                        # Получаем время
-                        today = datetime.datetime.now()
-                        # date_time = today.strftime("%Y-%m-%d/%H.%M.%S")
+                            numbers_for_req = list()
+                            # TODO реализовать на разные страны
+                            for num in self.labels:
+                                if len(num) > 7:
+                                    numbers_for_req.append(num)
 
-                        end_time = datetime.datetime.now()
-                        delta_time = (end_time - start_time).total_seconds()
+                            if numbers_for_req:
+                                # Получаем время
+                                today = datetime.datetime.now()
+                                # date_time = today.strftime("%Y-%m-%d/%H.%M.%S")
 
-                        with self.lock_change_nums:
-                            self.recon_numbers[cam_name] = {'numbers': numbers_for_req,
-                                                            'parsed': False,
-                                                            'date_time': today,
-                                                            'recognition_speed': delta_time}
-        except Exception as ex:
-            print(f"EXCEPTION\tAiClass.__thread_find\tИсключение в работе распознавания номера: {ex}")
+                                end_time = datetime.datetime.now()
+                                delta_time = (end_time - start_time).total_seconds()
 
-        self.allow_recognition_by_name[cam_name] = True
+                                with self.lock_change_nums:
+                                    self.recon_numbers[cam_name] = {'numbers': numbers_for_req,
+                                                                    'parsed': False,
+                                                                    'date_time': today,
+                                                                    'recognition_speed': delta_time}
+                except Exception as ex:
+                    print(f"EXCEPTION\tAiClass.__thread_find\tИсключение в работе распознавания номера: {ex}")
+
+                # Показываем кадр с нарисованным квадратом
+                cv2.imshow(f'show: {cam_name}', self.cams_frame[cam_name])
+                cv2.waitKey(10)
+
+                self.allow_recognition_by_name[cam_name] = True
 
     def find_plates(self, frame, cam_name: str):
         """ Функция начала распознавания номера в отдельном потоке """
@@ -287,15 +298,26 @@ class AiClass:
         if self.allow_recognition_by_name[cam_name]:
             self.allow_recognition_by_name[cam_name] = False
 
-            self.show_frame = frame.copy()
+            if self.threads_for_recon.get(cam_name):
+                self.allow_recognition[cam_name] = True
+                self.cams_frame[cam_name] = frame  # Дублирование
+            else:
+                try:
+                    self.stop_recon[cam_name] = True
+                    self.allow_recognition[cam_name] = True
 
-            try:
-                t1 = threading.Thread(target=self.__thread_find, args=[frame, cam_name])
-                t1.start()
-            except Exception as ex:
-                print(f"EXCEPTION\tAiClass.find_plates\tИсключение вызвала "
-                      f"попытка создания потока для распознавания: {ex}")
-                self.allow_recognition_by_name[cam_name] = True
+                    self.cams_frame[cam_name] = frame  # Дублирование
+
+                    self.threads_for_recon[cam_name] = \
+                        threading.Thread(target=self.__thread_find, args=[cam_name, ])
+
+                    self.threads_for_recon[cam_name].start()
+
+                    print(f"БЫЛ СОЗДАН ПОТОК ДЛЯ КАМ: {cam_name}")
+                except Exception as ex:
+                    print(f"EXCEPTION\tAiClass.find_plates\tИсключение вызвала "
+                          f"попытка создания потока для распознавания: {ex}")
+                    self.allow_recognition_by_name[cam_name] = True
 
     def recon_number(self, frame) -> list:
         """ Возвращает номер в виде списка элементов номера """
@@ -312,35 +334,6 @@ class AiClass:
             print(f"EXCEPTION\tAiClass.recon_number()\t{ex}")
 
         return result_of_numbers
-
-    # def draw_plate(self):
-    #
-    #     # with self.lock_thread:
-    #     # Добавляем разметку на кадр
-    #     # ret_frame = self.box_annotator.annotate(
-    #     #     scene=self.frame_1,
-    #     #     detections=self.detect_plates,
-    #     #     labels=self.labels
-    #     # )
-    #
-    #     return self.frame_1
-
-    # def save_plate(self, file_name, array: []):
-    #
-    #     # today = datetime.datetime.today()
-    #     # for_name = str(today.strftime("%Y%m%d%H%M%S%f"))
-    #     #
-    #     # file_name = f'{for_name}.jpg'
-    #
-    #     try:
-    #         if array:
-    #             self.frame_1 = self.frame_1[int(array.data[1]):int(array.data[3]),
-    #                                         int(array.data[0]):int(array.data[2])]
-    #
-    #         cv2.imwrite(os.path.join(consts.TEMP_PATH, file_name), self.frame_1)
-    #
-    #     except Exception as ex:
-    #         print(f"EXCEPTION\tAiClass.save_plate()\tИсключение - {ex}")
 
     def take_recon_numbers(self):
 
@@ -364,18 +357,17 @@ class AiClass:
         else:
             return []
 
-    def draw_plates(self, cam_name):
+    def draw_plates(self, frame, cam_name):
         box = self.take_plate_box(cam_name)
         # Draw bounding box.
         if box:
-            cv2.rectangle(self.show_frame, (box['left'], box['top']),
+            cv2.rectangle(frame, (box['left'], box['top']),
                           (box['left'] + box['width'], box['top'] + box['height']), [0, 0, 255], 2 * 1)
 
             # Показываем кадр с нарисованным квадратом
-            cv2.imshow(f'show: {cam_name}', self.show_frame)
+            cv2.imshow(f'show: {cam_name}', frame)
             cv2.waitKey(10)
 
 
 if __name__ == '__main__':
-
     print(num_to_rus(['e100kk777', '0111pp999', '123pp555']))

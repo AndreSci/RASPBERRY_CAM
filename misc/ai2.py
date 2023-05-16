@@ -73,6 +73,9 @@ class AiClass:
         self.threads_for_recon = dict()
         self.cams_frame = dict()
 
+        self.lock_box_rectangle = threading.Lock()
+        self.box = dict()
+
     def plates_pre_process_frame(self, frame):
         """ Перед отправкой в нейронку нужно произвести с ней манипуляции"""
         # outputs = []
@@ -107,7 +110,7 @@ class AiClass:
             # return width/height > 1.5
             return False
 
-    def __plates_post_process(self, input_image, outputs) -> dict:
+    def __plates_post_process(self, input_image, outputs, cam_name) -> dict:
         """ Вытаскиваем координаты найденных номеров из того, что отдала нам нейронка.
             Вытаскивает только те, которые прошли проверку уверенности. Отдает кадры на распознавание символов
             принимает в себя фрейм, который был отправлен в нейронку """
@@ -146,6 +149,8 @@ class AiClass:
 
         frames = []
 
+        top_plate = dict()
+
         for i in indices:
             box = boxes[i]
             width = box[2]
@@ -160,17 +165,22 @@ class AiClass:
 
                 # Draw bounding box.
                 # cv2.rectangle(input_image, (left, top), (left + width, top + height), BLUE, 3*THICKNESS)
-                cv2.rectangle(input_image, (ret_value['box']['left'], ret_value['box']['top']),
-                              (ret_value['box']['left'] + ret_value['box']['width'], ret_value['box']['top'] +
-                               ret_value['box']['height']), [0, 0, 255], 2 * 1)
+                # cv2.rectangle(input_image, (ret_value['box']['left'], ret_value['box']['top']),
+                #               (ret_value['box']['left'] + ret_value['box']['width'], ret_value['box']['top'] +
+                #                ret_value['box']['height']), [0, 0, 255], 2 * 1)
 
                 frames.append(input_image[top:top + height, left:left + width])
 
-                # Class label.
-                # label = "{}:{:.2f}".format(classes[class_ids[i]], confidences[i])
-                # Draw label.
-                # draw_label(input_image, label, left, top)
-        # print(f"len of plates = {len(frames)}")
+                if top_plate.get('width'):
+                    # Если есть запись и номер больше того что найден, переписываем.
+                    if top_plate['width'] < width:
+                        top_plate = {'left': box[0], 'top': box[1], 'width': width, 'height': height}
+                else:
+                    top_plate = {'left': box[0], 'top': box[1], 'width': width, 'height': height}
+
+        with self.lock_box_rectangle:
+            # Записываем данные нового plate для кадра
+            self.box[cam_name] = top_plate
 
         ret_value['frames_detected'] = frames
         return ret_value
@@ -230,6 +240,7 @@ class AiClass:
 
         return detected_num
 
+    # Функция для запуска в отдельном потоке для каждой камеры
     def __thread_find(self, cam_name: str):
 
         while self.stop_recon[cam_name]:  # Если нет команды остановить поток
@@ -245,8 +256,12 @@ class AiClass:
 
                         output_of_detections = self.plates_pre_process_frame(self.cams_frame[cam_name])
 
-                        plates = self.__plates_post_process(self.cams_frame[cam_name], output_of_detections)
+                        plates = self.__plates_post_process(self.cams_frame[cam_name], output_of_detections, cam_name)
                         # Находим все объекты на кадре
+
+                        # TODO убрать в релизе, если нужно...
+                        # Показываем кадр результат тестов +5%-10% к времени распознания
+                        self.__img_show(cam_name)
 
                         with self.lock_read_pl_on_fr:
                             if plates.get('box'):
@@ -284,9 +299,9 @@ class AiClass:
                 except Exception as ex:
                     print(f"EXCEPTION\tAiClass.__thread_find\tИсключение в работе распознавания номера: {ex}")
 
-                # Показываем кадр с нарисованным квадратом
-                cv2.imshow(f'show: {cam_name}', self.cams_frame[cam_name])
-                cv2.waitKey(10)
+                # # Показываем кадр с нарисованным квадратом
+                # cv2.imshow(f'show: {cam_name}', self.cams_frame[cam_name])
+                # cv2.waitKey(10)
 
                 self.allow_recognition_by_name[cam_name] = True
 
@@ -299,10 +314,12 @@ class AiClass:
             self.allow_recognition_by_name[cam_name] = False
 
             if self.threads_for_recon.get(cam_name):
+                # Если есть живой поток для камеры
                 self.allow_recognition[cam_name] = True
                 self.cams_frame[cam_name] = frame  # Дублирование
             else:
                 try:
+                    # тогда пробуем создать поток для камеры
                     self.stop_recon[cam_name] = True
                     self.allow_recognition[cam_name] = True
 
@@ -367,6 +384,19 @@ class AiClass:
             # Показываем кадр с нарисованным квадратом
             cv2.imshow(f'show: {cam_name}', frame)
             cv2.waitKey(10)
+
+    def __img_show(self, cam_name):
+        """ Функция выводик кадр в отдельном окне с размеченным номером """
+        with self.lock_box_rectangle:
+            if self.box.get(cam_name):
+                if self.box[cam_name]:
+                    cv2.rectangle(self.cams_frame[cam_name], (self.box[cam_name]['left'], self.box[cam_name]['top']),
+                                  (self.box[cam_name]['left'] + self.box[cam_name]['width'], self.box[cam_name]['top'] +
+                                   self.box[cam_name]['height']), [0, 0, 255], 2 * 1)
+
+        # Показываем кадр с нарисованным квадратом
+        cv2.imshow(f'show: {cam_name}', self.cams_frame[cam_name])
+        cv2.waitKey(10)
 
 
 if __name__ == '__main__':

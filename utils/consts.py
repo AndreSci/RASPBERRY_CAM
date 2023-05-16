@@ -22,7 +22,7 @@ NUMS_CONST_MAX_HEIGHT = 35
 
 PATH = os.getcwd()
 
-PLATES_MODEL_PATH = os.path.join(PATH, "content", "Plates", "frameDetection640.onnx")
+PLATES_MODEL_PATH = os.path.join(PATH, "content", "Plates", "best.onnx")
 NUMS_MODEL_PATH = os.path.join(PATH, "content",  "Nums", "last.onnx")
 
 IMAGES_PATH = os.path.join(PATH, "Images")

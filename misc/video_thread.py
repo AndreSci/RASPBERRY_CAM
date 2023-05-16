@@ -9,7 +9,7 @@ from misc.ai2 import AiClass
 
 class ThreadVideoRTSP:
     """ Класс получения видео из камеры"""
-    def __init__(self, cam_name: str, url: str, plate_recon: AiClass, camera_speed=30, recon_freq=0.5):
+    def __init__(self, cam_name: str, url, plate_recon: AiClass, camera_speed=30, recon_freq=0.5):
         # Настройки камеры
         self.url = url
         self.cam_name = cam_name
@@ -53,6 +53,7 @@ class ThreadVideoRTSP:
         """ Функция подключения и поддержки связи с камерой """
 
         capture = cv2.VideoCapture(self.url, cv2.CAP_FFMPEG)
+        # capture = cv2.VideoCapture(int(self.url))
 
         if capture.isOpened():
             logger.add_log(f"SUCCESS\tThreadVideoRTSP.start()\t"
@@ -68,10 +69,6 @@ class ThreadVideoRTSP:
 
                 ret, frame = capture.read()  # читать кадр
 
-                # if ret:
-                #     cv2.imshow('test', frame)
-                #     cv2.waitKey(10)
-
                 with self.th_do_frame_lock:
 
                     frame_index += 1
@@ -84,14 +81,10 @@ class ThreadVideoRTSP:
 
                     # if frame_index > (self.camera_speed * self.recon_freq) and ret:
                     if ret:
-
-                        # Создаем копию для того что б избежать коллизию чтения кадра
-                        copy_frame = frame.copy()
-
                         frame_index = 0
                         frame_fail_cnt = 0
 
-                        self.plate_recon.find_plates(copy_frame, self.cam_name)
+                        self.plate_recon.find_plates(frame.copy(), self.cam_name)
 
                     elif not ret:
                         # Собираем статистику неудачных кадров
@@ -101,7 +94,7 @@ class ThreadVideoRTSP:
                         # Если много неудачных кадров останавливаем поток и пытаемся переподключить камеру
                         if frame_fail_cnt == 50:
                             logger.add_log(f"WARNING\tThreadVideoRTSP.start()\t"
-                                            f"{self.cam_name} - "
+                                           f"{self.cam_name} - "
                                            f"Слишком много неудачных кадров, повторное переподключение к камере.")
                             break
                     else:
@@ -150,7 +143,7 @@ def create_cams_threads(cams_from_settings: dict, logger: Logger, plate_recon: A
     cameras = dict()
 
     for key in cams_from_settings:
-        cameras[key] = ThreadVideoRTSP(str(key), cams_from_settings[key], plate_recon)
+        cameras[key] = ThreadVideoRTSP(key, cams_from_settings[key], plate_recon)
         cameras[key].start(logger)
 
     return cameras

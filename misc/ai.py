@@ -281,7 +281,7 @@ class AiClass:
 
     def find_plates(self, frame, cam_name: str):
         """ Функция начала распознавания номера в отдельном потоке """
-        if not self.allow_recognition_by_name.get(cam_name):
+        if cam_name not in self.allow_recognition_by_name:
             self.allow_recognition_by_name[cam_name] = True
 
         if self.allow_recognition_by_name[cam_name]:

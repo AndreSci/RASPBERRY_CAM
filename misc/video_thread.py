@@ -4,12 +4,12 @@ import cv2
 import threading
 
 from misc.logger import Logger
-from misc.ai2 import AiClass
+from misc.ai3 import AiClass
 
 
 class ThreadVideoRTSP:
     """ Класс получения видео из камеры"""
-    def __init__(self, cam_name: str, url, plate_recon: AiClass, camera_speed=30, recon_freq=0.5):
+    def __init__(self, cam_name: str, url, plate_recon: AiClass, camera_speed=13, recon_freq=0.5):
         # Настройки камеры
         self.url = url
         self.cam_name = cam_name
@@ -54,6 +54,11 @@ class ThreadVideoRTSP:
 
         capture = cv2.VideoCapture(self.url, cv2.CAP_FFMPEG)
         # capture = cv2.VideoCapture(int(self.url))
+        W, H = 800, 450
+        capture.set(cv2.CAP_PROP_FRAME_WIDTH, W)
+        capture.set(cv2.CAP_PROP_FRAME_HEIGHT, H)
+        capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
+        capture.set(cv2.CAP_PROP_FPS, 15)
 
         if capture.isOpened():
             logger.add_log(f"SUCCESS\tThreadVideoRTSP.start()\t"
@@ -73,18 +78,13 @@ class ThreadVideoRTSP:
 
                     frame_index += 1
 
-                    # Временное решение для просмотра кадров под Flask
-                    # if frame_index in (0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60):
-                    #     # Преобразуем кадр в .jpg
-                    #     ret_jpg, frame_jpg = cv2.imencode('.jpg', cop_frame)
-                    #     self.last_frame = frame_jpg.tobytes()
-
-                    # if frame_index > (self.camera_speed * self.recon_freq) and ret:
                     if ret:
+                        # if frame_index > (self.camera_speed * self.recon_freq) and ret:
+
                         frame_index = 0
                         frame_fail_cnt = 0
 
-                        self.plate_recon.find_plates(frame.copy(), self.cam_name)
+                        self.plate_recon.find_plates(frame, self.cam_name)
 
                     elif not ret:
                         # Собираем статистику неудачных кадров
@@ -99,17 +99,6 @@ class ThreadVideoRTSP:
                             break
                     else:
                         frame_fail_cnt = 0
-                #
-                # if ret:
-                #     box = self.plate_recon.take_plate_box(self.cam_name)
-                #     # Draw bounding box.
-                #     if box:
-                #         cv2.rectangle(frame, (box['left'], box['top']),
-                #                       (box['left'] + box['width'], box['top'] + box['height']), [0, 255, 255], 2*1)
-                #
-                #     # Показываем кадр с нарисованным квадратом
-                #     cv2.imshow(f'show: {self.cam_name}', frame)
-                #     cv2.waitKey(10)
 
         except Exception as ex:
             logger.add_log(f"EXCEPTION\tThreadVideoRTSP.__start\t"

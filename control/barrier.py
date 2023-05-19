@@ -7,6 +7,7 @@ class BarrierClass:
         self.close = 'Close Barrier'
 
     def open(self):
+        # TODO тут должна быть релюшка
         print(self.open)
 
     def close(self):

@@ -5,9 +5,12 @@ import datetime
 
 from misc.video_thread import create_cams_threads
 
-from misc.ai2 import AiClass
+from misc.ai3 import AiClass
 from misc.utility import SettingsIni
 from misc.logger import Logger
+
+from database.sqlite3 import SQLClass
+from control.barrier import BarrierClass
 
 DUPLICATE_NUMBERS = dict()
 
@@ -58,30 +61,37 @@ def client(logger: Logger, settings_ini: SettingsIni):
     # Создаем объект для поиска номера на кадре
     plate_recon = AiClass()
 
+    # Объект всех камер
     cam_list = create_cams_threads(set_ini['CAMERAS'], logger, plate_recon)
+
+    barrier = BarrierClass()
 
     while True:
 
-        result = dict()
-        try:
-            result = plate_recon.take_recon_numbers()
-        except Exception as ex:
-            logger.add_log(f"EXCEPTION\tclient--plate_recon.take_recon_numbers()\t"
-                           f"Исключение вызвано при попытке получить результат распознания номеров: {ex}")
+        number = plate_recon.take_recon_numbers()
 
-        if result:
-            result = duplicate_numbers(result)
-            request_data = {"RESULT": 'SUCCESS', 'DESC': '', 'DATA': result}
+        request_data = {"RESULT": 'EMPTY', 'DESC': '', 'DATA': dict()}
 
-            if result:
+        if number:
+            number = duplicate_numbers(number)
+            request_data = {"RESULT": 'SUCCESS', 'DESC': '', 'DATA': number}
+
+            if number:  # TODO заменить на поиск в базе
+                # barrier.open()
                 # вместо request пока что принты
-                logger.add_log(f"SUCCESS\tclient\tRequest: {result}")  # log
-            # else:
-            #     print("Не удалось найти новые номера")
+                logger.add_log(f"SUCCESS\tclient\tRequest: {number}")  # log
+
         else:
             pass
 
-        time.sleep(0.2)
+        try:
+            req = requests.get('http://127.0.0.1:80/OnHeartBeat', json=request_data, timeout=1)
+
+            print(req.json())
+        except Exception as ex:
+            print(f"Тайм-аут ошибка: {ex}")
+
+        time.sleep(2)
 
 
 def main():

@@ -1,6 +1,6 @@
 from misc.utility import SettingsIni
 from misc.logger import Logger
-from main import web_flask
+from server import web_flask
 import ctypes
 
 
@@ -24,7 +24,7 @@ def main():
 
     # Меняем имя терминала
     # TODO Убрать для Linux
-    ctypes.windll.kernel32.SetConsoleTitleW(f"Client Wheel_CAM port: {port}")
+    # ctypes.windll.kernel32.SetConsoleTitleW(f"Client Wheel_CAM port: {port}")
 
     # Обьявляем логирование
     logger = Logger(settings)

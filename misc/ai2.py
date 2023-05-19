@@ -4,8 +4,10 @@ import threading
 import utils.consts as consts
 import numpy as np
 import datetime
+from misc.timer import timer_function
 
 PLATES_INITED_MODEL = cv2.dnn.readNet(consts.PLATES_MODEL_PATH)
+# PLATES_INITED_MODEL = cv2.dnn.readNet('best.onnx')
 NUMBERS_INITED_MODEL = cv2.dnn.readNet(consts.NUMS_MODEL_PATH)
 
 
@@ -76,6 +78,7 @@ class AiClass:
         self.lock_box_rectangle = threading.Lock()
         self.box = dict()
 
+    @timer_function
     def plates_pre_process_frame(self, frame):
         """ Перед отправкой в нейронку нужно произвести с ней манипуляции"""
         # outputs = []
@@ -83,10 +86,15 @@ class AiClass:
                                      (consts.PLATES_WIDTH_INPUT, consts.PLATES_HEIGHT_INPUT),
                                      [0, 0, 0], 1,
                                      crop=False)
+
+        print("тут 1")
         self.model_plates.setInput(blob)
+        print("тут 2")
 
+        # outputs = self.model_plates.forward(self.model_plates.getUnconnectedOutLayersNames())
+        print(self.model_plates.getLayerTypes())
         outputs = self.model_plates.forward(self.model_plates.getUnconnectedOutLayersNames())
-
+        print("тут 3")
         return outputs
 
     def nums_pre_process_frame(self, frame):
@@ -110,6 +118,7 @@ class AiClass:
             # return width/height > 1.5
             return False
 
+    @timer_function
     def __plates_post_process(self, input_image, outputs, cam_name) -> dict:
         """ Вытаскиваем координаты найденных номеров из того, что отдала нам нейронка.
             Вытаскивает только те, которые прошли проверку уверенности. Отдает кадры на распознавание символов
@@ -246,7 +255,7 @@ class AiClass:
         while self.stop_recon[cam_name]:  # Если нет команды остановить поток
 
             if self.allow_recognition[cam_name]:  # Если True начать искать номер
-
+                self.allow_recognition[cam_name] = False
                 try:
                     # Получаем время для статистики скорости распознавания
                     start_time = datetime.datetime.now()
@@ -296,24 +305,22 @@ class AiClass:
                                                                     'parsed': False,
                                                                     'date_time': today,
                                                                     'recognition_speed': delta_time}
+
                 except Exception as ex:
                     print(f"EXCEPTION\tAiClass.__thread_find\tИсключение в работе распознавания номера: {ex}")
-
-                # # Показываем кадр с нарисованным квадратом
-                # cv2.imshow(f'show: {cam_name}', self.cams_frame[cam_name])
-                # cv2.waitKey(10)
+                    self.allow_recognition_by_name[cam_name] = True  # Дублирование
 
                 self.allow_recognition_by_name[cam_name] = True
 
     def find_plates(self, frame, cam_name: str):
         """ Функция начала распознавания номера в отдельном потоке """
-        if not self.allow_recognition_by_name.get(cam_name):
+        if cam_name not in self.allow_recognition_by_name:
             self.allow_recognition_by_name[cam_name] = True
 
         if self.allow_recognition_by_name[cam_name]:
             self.allow_recognition_by_name[cam_name] = False
 
-            if self.threads_for_recon.get(cam_name):
+            if cam_name in self.threads_for_recon:
                 # Если есть живой поток для камеры
                 self.allow_recognition[cam_name] = True
                 self.cams_frame[cam_name] = frame  # Дублирование
@@ -369,7 +376,6 @@ class AiClass:
 
         if self.plates_on_frame.get(cam_name):
             with self.lock_read_pl_on_fr:
-
                 return self.plates_on_frame[cam_name].copy()
         else:
             return []
@@ -387,9 +393,11 @@ class AiClass:
 
     def __img_show(self, cam_name):
         """ Функция выводик кадр в отдельном окне с размеченным номером """
+
         with self.lock_box_rectangle:
             if self.box.get(cam_name):
                 if self.box[cam_name]:
+
                     cv2.rectangle(self.cams_frame[cam_name], (self.box[cam_name]['left'], self.box[cam_name]['top']),
                                   (self.box[cam_name]['left'] + self.box[cam_name]['width'], self.box[cam_name]['top'] +
                                    self.box[cam_name]['height']), [0, 0, 255], 2 * 1)

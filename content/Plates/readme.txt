@@ -1,0 +1,1 @@
+Model for recognition plates on frame

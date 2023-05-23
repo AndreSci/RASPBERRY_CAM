@@ -4,12 +4,14 @@ import cv2
 import threading
 
 from misc.logger import Logger
-from misc.ai3 import AiClass
+from misc.ai6 import AiClass
+from utils import consts
 
 
 class ThreadVideoRTSP:
     """ Класс получения видео из камеры"""
-    def __init__(self, cam_name: str, url, plate_recon: AiClass, camera_speed=13, recon_freq=0.5):
+    def __init__(self, cam_name: str, url, plate_recon: AiClass,
+                 camera_speed=consts.CAM_SPEED, recon_freq=consts.RECON_FREQ):
         # Настройки камеры
         self.url = url
         self.cam_name = cam_name
@@ -53,16 +55,11 @@ class ThreadVideoRTSP:
         """ Функция подключения и поддержки связи с камерой """
 
         capture = cv2.VideoCapture(self.url, cv2.CAP_FFMPEG)
-        # capture = cv2.VideoCapture(int(self.url))
-        W, H = 800, 450
-        capture.set(cv2.CAP_PROP_FRAME_WIDTH, W)
-        capture.set(cv2.CAP_PROP_FRAME_HEIGHT, H)
-        capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
-        capture.set(cv2.CAP_PROP_FPS, 15)
+        # capture = cv2.VideoCapture(0)
 
         if capture.isOpened():
             logger.add_log(f"SUCCESS\tThreadVideoRTSP.start()\t"
-                                f"Создано подключение к {self.cam_name} - {self.url}")
+                                                            f"Создано подключение к {self.cam_name} - {self.url}")
 
         frame_fail_cnt = 0
         frame_index = 0
@@ -105,8 +102,7 @@ class ThreadVideoRTSP:
                            f"Исключение вызвала ошибка в работе с видео потоком для камеры {self.cam_name}: {ex}")
             self.no_exception_in_read_frame = False
 
-        logger.add_log(f"WARNING\tThreadVideoRTSP.start()\t"
-                        f"{self.cam_name} - Камера отключена: {self.url}")
+        logger.add_log(f"WARNING\tThreadVideoRTSP.start()\t{self.cam_name} - Камера отключена: {self.url}")
         self.thread_is_alive = False
 
         try:

@@ -5,12 +5,14 @@ import datetime
 
 from misc.video_thread import create_cams_threads
 
-from misc.ai3 import AiClass
+from misc.ai6 import AiClass
 from misc.utility import SettingsIni
 from misc.logger import Logger
 
 from database.sqlite3 import SQLClass
 from control.barrier import BarrierClass
+
+from utils import consts
 
 DUPLICATE_NUMBERS = dict()
 
@@ -25,7 +27,7 @@ def count_duplicate_in(number, time_recon):
 
     if number in DUPLICATE_NUMBERS:
         # Если между дубликатами время прошло больше заданного одобряем отправку запроса
-        if (today - DUPLICATE_NUMBERS[number]['date_time']).total_seconds() > 15:
+        if (today - DUPLICATE_NUMBERS[number]['date_time']).total_seconds() > consts.CAR_REPEAT:
             DUPLICATE_NUMBERS[number]['date_time'] = today
         else:
             result = False
@@ -77,7 +79,8 @@ def client(logger: Logger, settings_ini: SettingsIni):
             request_data = {"RESULT": 'SUCCESS', 'DESC': '', 'DATA': number}
 
             if number:  # TODO заменить на поиск в базе
-                # barrier.open()
+                if not consts.DEBUG_MODE:
+                    barrier.open()
                 # вместо request пока что принты
                 logger.add_log(f"SUCCESS\tclient\tRequest: {number}")  # log
 
@@ -85,7 +88,8 @@ def client(logger: Logger, settings_ini: SettingsIni):
             pass
 
         try:
-            req = requests.get('http://127.0.0.1:80/OnHeartBeat', json=request_data, timeout=1)
+            req = requests.get(f'http://{consts.SERVER_HOST}:{consts.SERVER_PORT}/OnHeartBeat',
+                               json=request_data, timeout=1)
 
             print(req.json())
         except Exception as ex:

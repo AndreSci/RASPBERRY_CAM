@@ -10,7 +10,6 @@ from misc.ai5 import AiClass
 from misc.utility import SettingsIni
 from misc.logger import Logger
 
-from database.sqlite3 import SQLClass
 from control.barrier import BarrierClass
 
 from utils import consts

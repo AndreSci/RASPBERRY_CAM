@@ -168,6 +168,7 @@ class AiClass(DetectNumber):
             with self.lock_thread_allow_recon:
                 self.allow_recognition_by_name[cam_name] = False
 
+            # frame = cv2.resize(frame, (consts.PLATES_WIDTH_INPUT, consts.PLATES_HEIGHT_INPUT))
             self.cams_frame[cam_name] = frame.copy()
 
             with self.allow_rec_lock:

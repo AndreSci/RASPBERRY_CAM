@@ -65,10 +65,9 @@ class DetectNumber:
 
 class AiClass(DetectNumber):
     def __init__(self):
-        global NUMBERS_INITED_MODEL, PLATES_INITED_MODEL
+        global PLATES_INITED_MODEL
 
         self.model_plates = PLATES_INITED_MODEL
-        self.model_number = NUMBERS_INITED_MODEL
 
         self.lock_thread_allow_recon = threading.Lock()
         self.lock_thread_copy_frame = threading.Lock()
@@ -95,7 +94,7 @@ class AiClass(DetectNumber):
         """ Перед отправкой в нейронку нужно произвести с ней манипуляции"""
         # run the YOLO model on the frame
 
-        recon_items = self.model_plates(frame, verbose=False)
+        recon_items = self.model_plates(frame, verbose=False, stream=False)
 
         biggest = list()
 
@@ -168,27 +167,27 @@ class AiClass(DetectNumber):
             with self.lock_thread_allow_recon:
                 self.allow_recognition_by_name[cam_name] = False
 
-            # frame = cv2.resize(frame, (consts.PLATES_WIDTH_INPUT, consts.PLATES_HEIGHT_INPUT))
             self.cams_frame[cam_name] = frame.copy()
 
             with self.allow_rec_lock:
                 self.allow_recognition[cam_name] = True
 
-            if cam_thread not in self.threads_for_recon:
-                # тогда пробуем создать поток для камеры
-                try:
-                    self.start_recon[cam_name] = True
+            with self.allow_rec_lock:
+                if cam_thread not in self.threads_for_recon:
+                    # тогда пробуем создать поток для камеры
+                    try:
+                        self.start_recon[cam_name] = True
 
-                    self.threads_for_recon[cam_thread] = \
-                        threading.Thread(target=self.__thread_find)
+                        self.threads_for_recon[cam_thread] = \
+                            threading.Thread(target=self.__thread_find, daemon=True)
 
-                    self.threads_for_recon[cam_thread].start()
+                        self.threads_for_recon[cam_thread].start()
 
-                    print(f"БЫЛ СОЗДАН ПОТОК ДЛЯ КАМЕРА: {cam_thread}")
-                except Exception as ex:
-                    print(f"EXCEPTION\tAiClass.find_plates\tИсключение вызвала "
-                          f"попытка создания потока для распознавания: {ex}")
-                    self.allow_recognition_by_name[cam_name] = True
+                        print(f"БЫЛ СОЗДАН ПОТОК ДЛЯ КАМЕРА: {cam_thread}")
+                    except Exception as ex:
+                        print(f"EXCEPTION\tAiClass.find_plates\tИсключение вызвала "
+                              f"попытка создания потока для распознавания: {ex}")
+                        self.allow_recognition_by_name[cam_name] = True
 
     # Функция для запуска в отдельном потоке для каждой камеры
     def __thread_find(self):
@@ -198,29 +197,34 @@ class AiClass(DetectNumber):
             start_recon = True
 
             # Проверяем камеры на готовность распознаваться
-            for key in self.allow_recognition:
-                if not self.allow_recognition[key]:
-                    start_recon = False
+            with self.allow_rec_lock:
+                for key in self.allow_recognition:
+                    if not self.allow_recognition[key]:
+                        start_recon = False
 
             if start_recon:  # Если все камеры передали кадр начать распознавание
 
-                for key in self.allow_recognition:
-                    self.allow_recognition[key] = False
+                with self.allow_rec_lock:
+                    for key in self.allow_recognition:
+                        self.allow_recognition[key] = False
 
                 # Получаем время для статистики скорости распознавания
                 start_time = datetime.datetime.now()
 
                 try:
+                    # Решает вопрос с изменением размера в процессе добавления новых камер из другого потока
+                    with self.allow_rec_lock:
+                        copy_allow = self.allow_recognition.copy()
 
-                    for key in self.allow_recognition:
+                    for key in copy_allow:
                         self.detections[key] = self.__plates_process_recon(self.cams_frame[key])
 
                     # Показываем кадр результат тестов +5%-10% к времени распознания
-                    for key in self.allow_recognition:
+                    for key in copy_allow:
                         if consts.DEBUG_MODE:
                             self.__img_show(key)
 
-                    for key in self.allow_recognition:
+                    for key in copy_allow:
                         number = self.recon_number(key)
 
                         if len(number) > 0:
@@ -229,15 +233,12 @@ class AiClass(DetectNumber):
 
                             if len(number) > consts.LEN_FOR_NUMBER:
                                 # Получаем время
-                                today = datetime.datetime.now()
-                                # date_time = today.strftime("%Y-%m-%d/%H.%M.%S")
-
                                 end_time = datetime.datetime.now()
                                 delta_time = (end_time - start_time).total_seconds()
 
                                 with self.lock_change_nums:
                                     self.recon_numbers[key] = {'numbers': [number, ], 'parsed': False,
-                                                               'date_time': today,
+                                                               'date_time': end_time,
                                                                'recognition_speed': delta_time}
 
                 except Exception as ex:

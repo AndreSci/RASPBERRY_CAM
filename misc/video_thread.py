@@ -44,7 +44,7 @@ class ThreadVideoRTSP:
             logger.add_log(f"EVENT\tПопытка подключиться к камере: {self.cam_name} - {self.url}")
 
             with self.th_do_frame_lock:
-                self.thread_object = threading.Thread(target=self.__start, args=[logger, ])
+                self.thread_object = threading.Thread(target=self.__start, daemon=True, args=[logger, ])
                 self.thread_object.start()
                 self.thread_is_alive = True
         else:
@@ -55,7 +55,6 @@ class ThreadVideoRTSP:
         """ Функция подключения и поддержки связи с камерой """
 
         capture = cv2.VideoCapture(self.url, cv2.CAP_FFMPEG)
-        # capture = cv2.VideoCapture(0)
 
         if capture.isOpened():
             logger.add_log(f"SUCCESS\tThreadVideoRTSP.start()\t"

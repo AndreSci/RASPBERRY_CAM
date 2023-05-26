@@ -10,8 +10,6 @@ from misc.ai5 import AiClass
 from misc.utility import SettingsIni
 from misc.logger import Logger
 
-from control.barrier import BarrierClass
-
 from utils import consts
 
 DUPLICATE_NUMBERS = dict()
